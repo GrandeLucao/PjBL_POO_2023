@@ -19,6 +19,8 @@ public class Player extends Entity {
 	private BufferedImage [] rightPlayer;
 	private BufferedImage [] leftPlayer;
 	
+	public static double  life=100,maxLife=100;
+	
 	public Player(int x,int y,int width,int height,BufferedImage sprite) {
 		super(x,y,width,height,sprite);
 		
@@ -63,9 +65,26 @@ public class Player extends Entity {
 			}
 		}
 		
+		checkItems();
+		
 		Camera.x=Camera.clamp(this.GetX()-(Game.WIDTH/2),0,World.WIDTH*16-Game.WIDTH);
 		Camera.y=Camera.clamp(this.GetY()-(Game.HEIGHT/2),0,World.HEIGHT*16-Game.HEIGHT);
 		
+	}
+	
+	public void checkItems() {
+		for(int i=0;i<Game.entities.size();i++) {
+			Entity e=Game.entities.get(i);
+			if(e instanceof LifePack) {
+				if(Entity.isColliding(this, e)) {
+					life+=8;
+					if(life>=100) 
+						life=100;
+					Game.entities.remove(i);
+					return;
+				}				
+			}
+		}
 	}
 	
 	public void render(Graphics g) {

@@ -11,12 +11,15 @@ import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import javax.swing.JFrame;
 
+import com.lucao.entities.Enemy;
 import com.lucao.entities.Entity;
 import com.lucao.entities.Player;
 import com.lucao.graficos.Spritesheet;
+import com.lucao.graficos.UI;
 import com.lucao.world.World;
 
 public class Game extends Canvas implements Runnable, KeyListener{
@@ -36,20 +39,28 @@ public class Game extends Canvas implements Runnable, KeyListener{
 		private BufferedImage image;
 		
 		public static List<Entity> entities;
+		public static List<Enemy> enemys; 
 		public static Spritesheet spritesheet;
 		
 		public static World world;
 		
 		public static Player player;
 		
+		public static Random rand;
+		
+		public UI ui;
+		
 		public Game() {
+			rand=new Random();
 			addKeyListener(this);
 			setPreferredSize(new Dimension(WIDTH*SCALE,HEIGHT*SCALE));
 			initFrame();
 			//Inicializando objetos
 			
+			ui=new UI();
 			image= new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
 			entities=new ArrayList<Entity>();
+			enemys=new ArrayList<Enemy>();
 			spritesheet=new Spritesheet("/spritesheet.png");	
 			player=new Player(0,0,16,16,spritesheet.getSprite(32,0,16, 16));
 			entities.add(player);
@@ -110,6 +121,7 @@ public class Game extends Canvas implements Runnable, KeyListener{
 				Entity e=entities.get(i);
 				e.render(g);
 			}
+			ui.render(g);
 			
 			g.dispose();
 			g=bs.getDrawGraphics();
