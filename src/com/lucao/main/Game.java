@@ -3,10 +3,13 @@ package com.lucao.main;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -15,14 +18,16 @@ import java.util.Random;
 
 import javax.swing.JFrame;
 
+import com.lucao.entities.BulletShoot;
 import com.lucao.entities.Enemy;
 import com.lucao.entities.Entity;
 import com.lucao.entities.Player;
 import com.lucao.graficos.Spritesheet;
 import com.lucao.graficos.UI;
+import com.lucao.world.Camera;
 import com.lucao.world.World;
 
-public class Game extends Canvas implements Runnable, KeyListener{
+public class Game extends Canvas implements Runnable, KeyListener, MouseListener{
 
 	
 		/**
@@ -34,12 +39,14 @@ public class Game extends Canvas implements Runnable, KeyListener{
 		private boolean isRunning=true;
 		public static final int WIDTH=240;
 		public static final int HEIGHT=160;
-		private final int SCALE=3;
+		public static int SCALE=3;
 		
+		private int CUR_LEVEL=1, MAX_LEVEL=2;
 		private BufferedImage image;
 		
 		public static List<Entity> entities;
 		public static List<Enemy> enemys; 
+		public static List<BulletShoot> bullets; 
 		public static Spritesheet spritesheet;
 		
 		public static World world;
@@ -50,9 +57,19 @@ public class Game extends Canvas implements Runnable, KeyListener{
 		
 		public UI ui;
 		
+		public static String gameState="MENU";
+		private boolean showMessageGameOver=true;
+		private int framesGameOver=0;
+		private boolean restartGame=false;
+		
+		public Menu menu;
+		
+		public boolean saveGame=false;
+		
 		public Game() {
 			rand=new Random();
 			addKeyListener(this);
+			addMouseListener(this);
 			setPreferredSize(new Dimension(WIDTH*SCALE,HEIGHT*SCALE));
 			initFrame();
 			//Inicializando objetos
@@ -61,6 +78,9 @@ public class Game extends Canvas implements Runnable, KeyListener{
 			image= new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
 			entities=new ArrayList<Entity>();
 			enemys=new ArrayList<Enemy>();
+			bullets=new ArrayList<BulletShoot>();
+			menu=new Menu();
+			
 			spritesheet=new Spritesheet("/spritesheet.png");	
 			player=new Player(0,0,16,16,spritesheet.getSprite(32,0,16, 16));
 			entities.add(player);
@@ -98,9 +118,49 @@ public class Game extends Canvas implements Runnable, KeyListener{
 		}
 		
 		public void tick() {
+			if(gameState=="NORMAL") {
+			if(this.saveGame) {
+				this.saveGame=false;
+				String[] opt1={"level","vida"};
+				int[] opt2= {this.CUR_LEVEL, (int) player.life};
+				Menu.saveGame(opt1,opt2,10);
+			}
+			this.restartGame=false;
 			for(int i=0;i<entities.size();i++) {
 				Entity e=entities.get(i);
 				e.tick();
+			}
+			
+			for(int i=0; i<bullets.size();i++) {
+				bullets.get(i).tick();
+			}
+			
+			if(enemys.size()==0) {
+				CUR_LEVEL++;
+				if(CUR_LEVEL>MAX_LEVEL	) {
+					CUR_LEVEL=1;
+				}
+				String newWorld="level"+CUR_LEVEL+".png";
+				world.restartGame(newWorld);
+			}
+			}else if(gameState=="GAME_OVER") {
+				this.framesGameOver++;
+				if(this.framesGameOver==45) {
+					this.framesGameOver=0;
+					if(this.showMessageGameOver)
+						this.showMessageGameOver=false;
+						else
+							this.showMessageGameOver=true;
+				}
+				if(restartGame) {
+					this.restartGame=false;
+					this.gameState="NORMAL";
+					CUR_LEVEL=1;
+					String newWorld="level"+CUR_LEVEL+".png";
+					world.restartGame(newWorld);
+				}
+			}else if(gameState=="MENU") {
+				menu.tick();
 			}
 		}
 		
@@ -115,17 +175,36 @@ public class Game extends Canvas implements Runnable, KeyListener{
 			g.fillRect(0, 0, WIDTH, HEIGHT);
 			
 			//Renderizacao do game
-			Graphics2D g2=(Graphics2D) g;
+			//Graphics2D g2=(Graphics2D) g;
 			world.render(g);
 			for(int i=0;i<entities.size();i++) {
 				Entity e=entities.get(i);
 				e.render(g);
+			}
+			for(int i=0; i<bullets.size();i++) {
+				bullets.get(i).render(g);
 			}
 			ui.render(g);
 			
 			g.dispose();
 			g=bs.getDrawGraphics();
 			g.drawImage(image, 0, 0, WIDTH*SCALE, HEIGHT*SCALE, null);
+			g.setFont(new Font("arial", Font.BOLD,20));
+			g.setColor(Color.white);
+			g.drawString("Ammo: "+player.ammo,600,20);
+			if(gameState=="GAME_OVER") {
+				Graphics2D g2=(Graphics2D) g;
+				g2.setColor(new Color(0,0,0,100));
+				g2.fillRect(0, 0, WIDTH*SCALE, HEIGHT*SCALE);
+				g.setFont(new Font("arial", Font.BOLD,36));
+				g.setColor(Color.white);
+				g.drawString("Game Over",(WIDTH*SCALE)/2-50,(HEIGHT*SCALE)/2-20); 
+				g.setFont(new Font("arial", Font.BOLD,32));
+				if(showMessageGameOver)
+						g.drawString(" >Pressione Enter para reiniciar<",(WIDTH*SCALE)/2-200,(HEIGHT*SCALE)/2+40);
+			}else if(gameState=="MENU") {
+				menu.render(g);
+			}
 			bs.show();
 		}
 		
@@ -172,10 +251,36 @@ public class Game extends Canvas implements Runnable, KeyListener{
 			
 			if(e.getKeyCode()==KeyEvent.VK_UP ||	e.getKeyCode()==KeyEvent.VK_W) {
 				player.up=true;
+				if(gameState=="MENU") {
+					menu.up=true;
+				}
 			}else if(e.getKeyCode()==KeyEvent.VK_DOWN ||	e.getKeyCode()==KeyEvent.VK_S) {
 				player.down=true;
+				if(gameState=="MENU") {
+					menu.down=true;
+				}
 			}
 			
+			if(e.getKeyCode()==KeyEvent.VK_X) {
+				player.isShooting=true;
+			}
+			
+			if(e.getKeyCode()==KeyEvent.VK_ENTER) {
+				this.restartGame=true;
+				if(gameState=="MENU") {
+					menu.enter=true;
+				}
+			}
+			
+			if(e.getKeyCode()==KeyEvent.VK_ESCAPE) {
+				gameState="MENU";
+				menu.pause=true;
+			}
+			
+			if(e.getKeyCode()==KeyEvent.VK_SPACE) {
+				if(gameState=="NORMAL")
+					this.saveGame=true;
+			}
 		}
 
 		@Override
@@ -191,6 +296,39 @@ public class Game extends Canvas implements Runnable, KeyListener{
 			}else if(e.getKeyCode()==KeyEvent.VK_DOWN ||	e.getKeyCode()==KeyEvent.VK_S) {
 				player.down=false;
 			}
+			
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			player.mouseShoot=true;
+			player.mx=(e.getX()/3);
+			player.my=(e.getY()/3);
+
+			
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+			// TODO Auto-generated method stub
 			
 		}
 		

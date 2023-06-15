@@ -1,6 +1,5 @@
 package com.lucao.entities;
 
-import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -18,6 +17,11 @@ public class Enemy extends Entity{
 	private  int frames=0, maxFrames=20,index=0,maxIndex=1;
 	
 	private BufferedImage[] sprites;
+	
+	private int life=5;
+	
+	private boolean isDamaged=false;
+	private int damageFrames=10,damageCurrent=0;
 
 	public Enemy(int x, int y, int width, int height, BufferedImage sprite) {
 		super(x, y, width, height, sprite);
@@ -43,9 +47,7 @@ public class Enemy extends Entity{
 		}else {
 			if(Game.rand.nextInt(100)<10) {
 				Game.player.life-=Game.rand.nextInt(5);
-				if(Game.player.life<=0) {
-					System.exit(1);
-				}
+				Game.player.isDamaged=true;
 			}
 		}
 			frames++;
@@ -56,6 +58,40 @@ public class Enemy extends Entity{
 					index=0;
 				}
 			}
+			
+			collidingBullet();
+			
+			if(life<=0) {
+				destroySelf();
+				return;
+			}
+
+			if(isDamaged) {
+				this.damageCurrent++;
+				if(this.damageCurrent==this.damageFrames) {
+					this.damageCurrent=0;
+					this.isDamaged=false;
+				}
+			}
+	}
+	
+	public void destroySelf() {
+		Game.enemys.remove(this);
+		Game.entities.remove(this);
+	}
+	
+	public void collidingBullet() {
+		for(int i=0;i<Game.bullets.size();i++) {
+			Entity e=Game.bullets.get(i);
+			if(e instanceof BulletShoot) {
+				if(Entity.isColliding(this, e)) {
+					isDamaged=true;
+					life--;
+					Game.bullets.remove(i);
+					return;
+				}
+			}
+		}
 	}
 	
 	public  boolean isCollidingWithPlayer() {
@@ -81,7 +117,11 @@ public class Enemy extends Entity{
 	}
 	
 	public void render(Graphics g) {
-		g.drawImage(sprites[index],this.GetX()-Camera.x,this.GetY()-Camera.y,null);
+		if(!isDamaged) {
+			g.drawImage(sprites[index],this.GetX()-Camera.x,this.GetY()-Camera.y,null);
+		}else {
+			g.drawImage(Entity.ENEMY_DAMAGE,this.GetX()-Camera.x,this.GetY()-Camera.y,null);
+		}
 	}
 	
 
